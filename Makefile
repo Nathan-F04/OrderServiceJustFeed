@@ -9,7 +9,7 @@ freeze:
 	pip freeze > requirements.txt
 
 run:
-	python -m uvicorn $(ORDER_APP) --host 0.0.0.0 --port 8003 --reload
+	python -m uvicorn order_service.orders:app --host localhost --port 8003 --reload
 
 start:
 	nohup python -m uvicorn $(ORDER_APP) --host 0.0.0.0 --port 8003 --reload \

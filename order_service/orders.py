@@ -1,19 +1,32 @@
 """Order Service with Cart functionality"""
 
-from fastapi import FastAPI, Depends, HTTPException, status, Response
+from fastapi import FastAPI, Depends, HTTPException, status, Response,Request
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
+from fastapi.middleware.cors import CORSMiddleware
 from .database import engine, SessionLocal
 from .models import Base, CartDB, CartItemDB, OrderDB, OrderItemDB
 from .schemas import (
-    CartItemCreate, CartItemRead, CartItemUpdate, CartRead,
-    OrderCreate, OrderRead, OrderStatusUpdate
+    CartItemCreate, CartItemRead, CartItemUpdate, CartRead, OrderItemRead,
+    OrderCreate, OrderRead, OrderStatusUpdate, OrderItemPatch
 )
 
 app = FastAPI()
 Base.metadata.create_all(bind=engine)
+
+origins = [
+    "http://localhost:3000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 def get_db():
     db = SessionLocal()
@@ -27,14 +40,12 @@ def get_all_orders(db: Session = Depends(get_db)):
     orders = db.execute(select(OrderDB).order_by(OrderDB.id)).scalars().all()
     return orders
 
-@app.get("/api/orders/{order_id}", response_model=OrderRead)
-def get_order(order_id: int, db: Session = Depends(get_db)):
-    order = db.get(OrderDB, order_id)
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
-    return order
+@app.get("/api/orders_front", response_model=list[OrderItemRead])
+def get_all_orders_front(db: Session = Depends(get_db)):
+    orders = db.execute(select(OrderItemDB).order_by(OrderItemDB.id)).scalars().all()
+    return orders
 
-@app.post("/api/orders", response_model=OrderRead, status_code=status.HTTP_201_CREATED)
+@app.post("/api/post_orders", response_model=OrderRead, status_code=status.HTTP_201_CREATED)
 def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
     order = OrderDB(user_id=payload.user_id, total_amount=payload.price * payload.quantity)
     db.add(order)
@@ -63,6 +74,32 @@ def update_order_status(order_id: int, payload: OrderStatusUpdate, db: Session =
     order.status = payload.status
     db.commit()
     db.refresh(order)
+    return order
+
+
+   
+    
+    order.quantity = payload.quantity
+    db.commit()
+    db.refresh(order)
+    return order
+
+@app.patch("/api/orders_front/{order_id}", response_model=OrderItemPatch)
+def patch_user(order_id: int, payload: OrderItemPatch, db: Session = Depends(get_db)):
+    order = db.get(OrderItemDB, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+ 
+    # Update only the fields provided
+    update_data = payload.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(order, key, value)
+    try:
+        db.add(order)
+        db.commit()
+        db.refresh(order)
+    except IntegrityError:
+        db.rollback()
     return order
 
 @app.delete("/api/orders/{order_id}", status_code=204)
