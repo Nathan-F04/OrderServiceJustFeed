@@ -28,4 +28,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/${{ env.REPO_NAME }}/service_a:latest,ghcr.io/${{ env.REPO_NAME }}/service_a:${{ github.sha }}
+          tags: ghcr.io/${{ env.REPO_NAME }}/service_d:latest,ghcr.io/${{ env.REPO_NAME }}/service_d:${{ github.sha }}
