@@ -21,6 +21,14 @@ def test_get_all_orders_ok(client):
     data = result.json()
     assert len(data) >= 1
 
+def test_get_all_order_items_ok(client):
+    """Tests get method for retrieving all order items"""
+    client.post("/api/orders", json=order_payload())
+    result = client.get("/api/orders/items")
+    assert result.status_code == 200
+    data = result.json()
+    assert len(data) >= 1
+
 def test_get_order_ok(client):
     """Tests get method for retrieving a specific order"""
     create_result = client.post("/api/orders", json=order_payload())
@@ -44,6 +52,15 @@ def test_update_order_status_ok(client):
     assert result.status_code == 200
     data = result.json()
     assert data["status"] == "confirmed"
+
+def test_update_order_item_ok(client):
+    """Tests patch method for updating order item details"""
+    create_result = client.post("/api/orders", json=order_payload())
+    order_id = create_result.json()["id"]
+    result = client.patch(f"/api/orders/items/{order_id}", json={"quantity": 5})
+    assert result.status_code == 200
+    data = result.json()
+    assert data["quantity"] == 5
 
 def test_update_order_status_404(client):
     """Tests 404 on updating non-existent order"""
