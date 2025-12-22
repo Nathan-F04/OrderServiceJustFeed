@@ -11,7 +11,7 @@ PositiveFloat = Annotated[float, Ge(0.01)]
 
 # Cart Item schemas
 class CartItemCreate(BaseModel):
-    item_name: str = Field(min_length=1, max_length=100)
+    title: str = Field(min_length=1, max_length=100)
     image: Optional[str] = Field(None, max_length=255)
     price: PositiveFloat
     description: Optional[str] = Field(None, max_length=500)
@@ -19,16 +19,23 @@ class CartItemCreate(BaseModel):
 
 class OrderCreate(BaseModel):
     user_id: PositiveInt
-    item_name: str = Field(min_length=1, max_length=100)
+    title: str = Field(min_length=1, max_length=100)
     image: Optional[str] = Field(None, max_length=255)
     price: PositiveFloat
     description: Optional[str] = Field(None, max_length=500)
     quantity: PositiveInt
 
-class CartItemRead(BaseModel):
+class ItemRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
-    item_name: str = Field(max_length=200)
+    title: str = Field(max_length=200)
+    image: Optional[str] = None
+    price: float
+    description: Optional[str] = None
+    quantity: int
+
+class ItemCreate(BaseModel):
+    title: str = Field(max_length=200)
     image: Optional[str] = None
     price: float
     description: Optional[str] = None
@@ -37,40 +44,37 @@ class CartItemRead(BaseModel):
 class CartItemUpdate(BaseModel):
     quantity: PositiveInt
 
-# Cart schemas
-class CartRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    id: int
-    user_id: int
-    created_at: datetime
-    items: List[CartItemRead] = []
-
 # Order Item schemas
 class OrderItemRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    id: int
-    item_name: str = Field(max_length=200)
+    title: str = Field(max_length=200)
     image: Optional[str] = None
-    price: float
+    price: PositiveFloat
     description: Optional[str] = None
     quantity: int
 
 class OrderItemPatch(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: Optional[int] = None
-    item_name: Optional[str] = None
+    title: Optional[str] = None
     image: Optional[str] = None
     price: Optional[float] = None
     description: Optional[str] = None
     quantity: Optional[int] = None
 
 # Order schemas
-class OrderRead(BaseModel):
+class OrderReturn(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     user_id: int
     total_amount: PositiveFloat
-    status: str
+    created_at: datetime
+    items: List[OrderItemRead] = []
+
+class OrderRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    user_id: int
+    total_amount: PositiveFloat
     created_at: datetime
     items: List[OrderItemRead] = []
 
