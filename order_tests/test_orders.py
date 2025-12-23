@@ -1,5 +1,6 @@
 """Test File for Order Service"""
 from  datetime import datetime, timezone
+from unittest.mock import AsyncMock, patch
 menu_arr = [
     {
         "title": "Pizza",
@@ -43,14 +44,33 @@ def test_create_item_ok(client):
     assert data["description"] == "A little about it"
     assert data["quantity"] == 1
 
-def test_create_receipt_ok(client):
-    """Tests post method for creating an item to order"""
+@patch('order_service.orders.get_exchange')  
+def test_create_receipt_ok(mock_get_exchange, client):
+    """Tests post method for creating an order receipt"""
+    # Mock RabbitMQ connection, channel, and exchange
+    mock_conn = AsyncMock()
+    mock_ch = AsyncMock()
+    mock_ex = AsyncMock()
+    mock_get_exchange.return_value = (mock_conn, mock_ch, mock_ex)
+
     result = client.post("/api/orderReceipt", json=receipt_payload())
     print(result.json())
     assert result.status_code == 201
 
-def test_get_all_orders_ok(client):
+    #Verify RabbitMQ was called correctly
+    mock_get_exchange.assert_called_once()
+    mock_ex.publish.assert_called_once()
+    mock_conn.close.assert_called_once()
+
+@patch('order_service.orders.get_exchange') 
+def test_get_all_orders_ok(mock_get_exchange, client):
     """Tests get method for retrieving order receipt"""
+    # Mock RabbitMQ for the POST request
+    mock_conn = AsyncMock()
+    mock_ch = AsyncMock()
+    mock_ex = AsyncMock()
+    mock_get_exchange.return_value = (mock_conn, mock_ch, mock_ex)
+
     client.post("/api/orderReceipt", json=receipt_payload())
     result = client.get("/api/orders")
     assert result.status_code == 200
@@ -86,5 +106,3 @@ def test_delete_order_404(client):
     """Tests 404 on deleting non-existent order"""
     result = client.delete("/api/orders/999")
     assert result.status_code == 404
-
-

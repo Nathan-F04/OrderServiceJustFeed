@@ -42,6 +42,7 @@ async def get_exchange():
     return conn, ch, ex
 
 def get_db():
+    """get_db"""
     db = SessionLocal()
     try:
         yield db
