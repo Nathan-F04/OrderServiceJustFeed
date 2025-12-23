@@ -5,16 +5,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-
+import aio_pika
 from .database import engine, SessionLocal
-from .models import Base, CartDB, CartItemDB, OrderDB, OrderItemDB
-from .schemas import (
-    CartItemCreate, CartItemRead, CartItemUpdate, CartRead,
-    OrderCreate, OrderRead, OrderStatusUpdate, OrderItemRead, OrderItemPatch
-)
+from .models import Base, ItemDB, OrderDB, OrderItemDB
+from .schemas import (ItemCreate, ItemRead, OrderRead, OrderReturn, OrderItemRead, OrderItemPatch)
+import json
+import os
 
 app = FastAPI()
 Base.metadata.create_all(bind=engine)
+
+#Rabbit MQ
+EXCHANGE_NAME = "just_feed_exchange"
+RABBIT_URL = os.getenv("RABBIT_URL")
 
 origins = [
     "http://localhost:3000",
@@ -28,7 +31,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+async def get_exchange():
+    """
+    Open a connection, create a channel and declare a topic exchange.
+    Returns (connection, channel, exchange).
+    """
+    conn = await aio_pika.connect_robust(RABBIT_URL)
+    ch = await conn.channel()
+    ex = await ch.declare_exchange(EXCHANGE_NAME, aio_pika.ExchangeType.TOPIC)
+    return conn, ch, ex
+
 def get_db():
+    """get_db"""
     db = SessionLocal()
     try:
         yield db
@@ -37,57 +51,69 @@ def get_db():
 
 @app.get("/api/orders", response_model=list[OrderRead])
 def get_all_orders(db: Session = Depends(get_db)):
+    """Get the order reciept"""
     orders = db.execute(select(OrderDB).order_by(OrderDB.id)).scalars().all()
     return orders
 
 @app.get("/api/orders/items", response_model=list[OrderItemRead])
 def get_all_orders_front(db: Session = Depends(get_db)):
-    orders = db.execute(select(OrderItemDB).order_by(OrderItemDB.id)).scalars().all()
+    """Get the items in the db for display on the frontpage"""
+    orders = db.execute(select(ItemDB).order_by(ItemDB.id)).scalars().all()
     return orders
 
-## May not need this endpoint
-@app.get("/api/orders/{order_id}", response_model=OrderRead)
-def get_order(order_id: int, db: Session = Depends(get_db)):
-    order = db.get(OrderDB, order_id)
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
-    return order
-
 ## Admin endpoint current only accessable using swagger
-@app.post("/api/orders", response_model=OrderRead, status_code=status.HTTP_201_CREATED)
-def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
-    order = OrderDB(user_id=payload.user_id, total_amount=payload.price * payload.quantity)
-    db.add(order)
-    db.commit()
-    db.refresh(order)
-    
-    order_item = OrderItemDB(
-        order_id=order.id,
-        item_name=payload.item_name,
-        image=payload.image,
-        price=payload.price,
-        description=payload.description,
-        quantity=payload.quantity
-    )
-    db.add(order_item)
-    db.commit()
-    db.refresh(order)
-    return order
+@app.post("/api/orders", response_model=ItemRead, status_code=status.HTTP_201_CREATED)
+def create_order(payload: ItemCreate, db: Session = Depends(get_db)):
+    """Create item for display to add to cart"""
+    item = ItemDB(**payload.model_dump())
+    db.add(item)
+    try:
+        db.commit()
+        db.refresh(item)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Item already exists")
+    return item
 
-## If we remove status we wont need this
-@app.patch("/api/orders/{order_id}", response_model=OrderRead)
-def update_order_status(order_id: int, payload: OrderStatusUpdate, db: Session = Depends(get_db)):
-    order = db.get(OrderDB, order_id)
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
-    
-    order.status = payload.status
-    db.commit()
-    db.refresh(order)
-    return order
+@app.post("/api/orderReceipt", response_model=OrderReturn, status_code=status.HTTP_201_CREATED)
+async def create_order_receipt(payload: OrderRead, db: Session = Depends(get_db)):
+    """Post the receipt for an order"""
+    items = [
+    OrderItemDB(
+        title=item.title,
+        price=item.price,
+        image=item.image,
+        description=item.description,
+        quantity=item.quantity,
+    )
+    for item in payload.items
+    ]
+
+    # Create the OrderDB instance
+    receipt = OrderDB(
+        user_id=payload.user_id,
+        total_amount=payload.total_amount,
+        created_at=payload.created_at,
+        items=items
+    )
+    db.add(receipt)
+    try:
+        db.commit()
+        db.refresh(receipt)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Order failed")
+
+    #Queue logic
+    conn, ch, ex = await get_exchange()
+    msg = aio_pika.Message(body=json.dumps("Success").encode())
+    await ex.publish(msg, routing_key="order.success")
+    await conn.close()
+    return receipt
 
 @app.patch("/api/orders/items/{order_id}", response_model=OrderItemPatch)
 def patch_user(order_id: int, payload: OrderItemPatch, db: Session = Depends(get_db)):
+    """Patch to update the quantity"""
     order = db.get(OrderItemDB, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order Item not found")
@@ -105,12 +131,12 @@ def patch_user(order_id: int, payload: OrderItemPatch, db: Session = Depends(get
     return order
 
 ## Needs to be implemented on the front end
-@app.delete("/api/orders/{order_id}", status_code=204)
-def delete_order(order_id: int, db: Session = Depends(get_db)):
-    order = db.get(OrderDB, order_id)
+@app.delete("/api/orders/{item_id}", status_code=204)
+def delete_item(item_id: int, db: Session = Depends(get_db)):
+    """Delete method for items"""
+    order = db.get(ItemDB, item_id)
     if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
-    
+        raise HTTPException(status_code=404, detail="Item not found")
     db.delete(order)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
