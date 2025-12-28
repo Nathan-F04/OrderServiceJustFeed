@@ -78,6 +78,7 @@ def create_order(payload: ItemCreate, db: Session = Depends(get_db)):
 @app.post("/api/orderReceipt", response_model=OrderReturn, status_code=status.HTTP_201_CREATED)
 async def create_order_receipt(payload: OrderRead, db: Session = Depends(get_db)):
     """Post the receipt for an order"""
+    conn, ch, ex = await get_exchange()
     items = [
     OrderItemDB(
         title=item.title,
@@ -102,10 +103,11 @@ async def create_order_receipt(payload: OrderRead, db: Session = Depends(get_db)
         db.refresh(receipt)
     except IntegrityError:
         db.rollback()
+        msg = aio_pika.Message(body=json.dumps("Order couldn't be placed successfully").encode())
+        await ex.publish(msg, routing_key="order.success")
+        await conn.close()
         raise HTTPException(status_code=409, detail="Order failed")
 
-    #Queue logic
-    conn, ch, ex = await get_exchange()
     msg = aio_pika.Message(body=json.dumps("Order placed successfully").encode())
     await ex.publish(msg, routing_key="order.success")
     await conn.close()
