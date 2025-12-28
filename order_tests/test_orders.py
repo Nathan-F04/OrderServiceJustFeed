@@ -44,7 +44,7 @@ def test_create_item_ok(client):
     assert data["description"] == "A little about it"
     assert data["quantity"] == 1
 
-@patch('order_service.orders.get_exchange')  
+@patch('order_service.orders.get_exchange')
 def test_create_receipt_ok(mock_get_exchange, client):
     """Tests post method for creating an order receipt"""
     # Mock RabbitMQ connection, channel, and exchange
@@ -62,7 +62,7 @@ def test_create_receipt_ok(mock_get_exchange, client):
     mock_ex.publish.assert_called_once()
     mock_conn.close.assert_called_once()
 
-@patch('order_service.orders.get_exchange') 
+@patch('order_service.orders.get_exchange')
 def test_get_all_orders_ok(mock_get_exchange, client):
     """Tests get method for retrieving order receipt"""
     # Mock RabbitMQ for the POST request
@@ -79,7 +79,7 @@ def test_get_all_orders_ok(mock_get_exchange, client):
 
 def test_get_all_orders_front_ok(client):
     """Tests get method for retrieving all order items"""
-    client.post("/api/orderReceipt", json=menu_item())
+    client.post("/api/orders", json=menu_item())
     result = client.get("/api/orders/items")
     assert result.status_code == 200
     data = result.json()

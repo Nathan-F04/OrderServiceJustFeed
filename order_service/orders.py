@@ -106,7 +106,7 @@ async def create_order_receipt(payload: OrderRead, db: Session = Depends(get_db)
 
     #Queue logic
     conn, ch, ex = await get_exchange()
-    msg = aio_pika.Message(body=json.dumps("Success").encode())
+    msg = aio_pika.Message(body=json.dumps("Order placed successfully").encode())
     await ex.publish(msg, routing_key="order.success")
     await conn.close()
     return receipt
