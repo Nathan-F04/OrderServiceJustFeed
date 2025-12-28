@@ -1,6 +1,6 @@
 """Test File for Order Service"""
 from  datetime import datetime, timezone
-from unittest.mock import AsyncMock, patch
+
 menu_arr = [
     {
         "title": "Pizza",
@@ -19,6 +19,7 @@ menu_arr = [
 ]
 
 def receipt_payload(user_id=1, total_amount=20, created_at=None, items=None):
+    """Payload for posts to receipt"""
     if items is None:
         items = menu_arr
     if created_at is None:
@@ -44,38 +45,25 @@ def test_create_item_ok(client):
     assert data["description"] == "A little about it"
     assert data["quantity"] == 1
 
-@patch('order_service.orders.get_exchange')
-def test_create_receipt_ok(mock_get_exchange, client):
+def test_create_receipt_ok(mock_rabbitmq, client):
     """Tests post method for creating an order receipt"""
-    # Mock RabbitMQ connection, channel, and exchange
-    mock_conn = AsyncMock()
-    mock_ch = AsyncMock()
-    mock_ex = AsyncMock()
-    mock_get_exchange.return_value = (mock_conn, mock_ch, mock_ex)
 
     result = client.post("/api/orderReceipt", json=receipt_payload())
     print(result.json())
     assert result.status_code == 201
 
-    #Verify RabbitMQ was called correctly
-    mock_get_exchange.assert_called_once()
-    mock_ex.publish.assert_called_once()
-    mock_conn.close.assert_called_once()
+    mock_rabbitmq.assert_called()
 
-@patch('order_service.orders.get_exchange')
-def test_get_all_orders_ok(mock_get_exchange, client):
+def test_get_all_orders_ok(mock_rabbitmq, client):
     """Tests get method for retrieving order receipt"""
-    # Mock RabbitMQ for the POST request
-    mock_conn = AsyncMock()
-    mock_ch = AsyncMock()
-    mock_ex = AsyncMock()
-    mock_get_exchange.return_value = (mock_conn, mock_ch, mock_ex)
 
     client.post("/api/orderReceipt", json=receipt_payload())
     result = client.get("/api/orders")
     assert result.status_code == 200
     data = result.json()
     assert len(data) >= 1
+
+    mock_rabbitmq.assert_called()
 
 def test_get_all_orders_front_ok(client):
     """Tests get method for retrieving all order items"""

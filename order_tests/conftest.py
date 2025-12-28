@@ -1,12 +1,13 @@
 """Order test configs"""
 
-from order_service.orders import app, get_db
-import pytest
+from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from order_service.models import Base
 from sqlalchemy.pool import StaticPool
+import pytest
+from order_service.orders import app, get_db
+from order_service.models import Base
 
 TEST_DB_URL = "sqlite+pysqlite:///:memory:"
 engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False}, poolclass=StaticPool)
@@ -27,3 +28,13 @@ def client():
         # hand the client to the test
         yield c
         # --- teardown happens when the 'with' block exits ---
+
+@pytest.fixture
+def mock_rabbitmq():
+    """Fixture that mocks RabbitMQ for all tests that need it"""
+    with patch('order_service.orders.get_exchange') as mock_get_exchange:
+        mock_conn = AsyncMock()
+        mock_ch = AsyncMock()
+        mock_ex = AsyncMock()
+        mock_get_exchange.return_value = (mock_conn, mock_ch, mock_ex)
+        yield mock_get_exchange
