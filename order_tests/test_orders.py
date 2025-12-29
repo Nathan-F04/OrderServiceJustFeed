@@ -3,14 +3,14 @@ from  datetime import datetime, timezone
 
 menu_arr = [
     {
-        "item_name": "Pizza",  # Changed from 'title'
+        "title": "Pizza",  # Back to 'title'
         "price": 10,
         "image": "Just-feed.png",
         "description": "A little about it",
         "quantity": 1
     },
     {
-        "item_name": "Burger",  # Changed from 'title'
+        "title": "Burger",  # Back to 'title'
         "price": 10,
         "image": "Just-feed.png",
         "description": "A little about it",
@@ -30,9 +30,9 @@ def receipt_payload(user_id=1, total_amount=20, created_at=None, items=None):
         "created_at": created_at,
         "items": items
     }
-def menu_item(item_name="Pizza", image="Just-feed.png", price=10, description="A little about it",quantity=1):
+def menu_item(title="Pizza", image="Just-feed.png", price=10, description="A little about it",quantity=1):
     """Payload for posting an item to order"""
-    return{"title":item_name, "image":image, "price": price, "description":description, "quantity": quantity}  # Keep 'title' for ItemDB
+    return{"title":title, "image":image, "price": price, "description":description, "quantity": quantity}
 
 def test_create_item_ok(client):
     """Tests post method for creating an item to order"""

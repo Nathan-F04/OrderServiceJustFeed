@@ -30,7 +30,7 @@ class OrderItemDB(Base):
     
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     order_id: Mapped[int] = mapped_column(ForeignKey("orders.id"), nullable=False)
-    item_name: Mapped[str] = mapped_column(String(100), nullable=False)  # Changed from 'title'
+    title: Mapped[str] = mapped_column(String(100), nullable=False)  # Back to 'title'
     image: Mapped[str] = mapped_column(String(255), nullable=True)
     price: Mapped[float] = mapped_column(Float, nullable=False)
     description: Mapped[str] = mapped_column(String(500), nullable=True)

@@ -47,8 +47,8 @@ class CartItemUpdate(BaseModel):
 # Order Item schemas
 class OrderItemRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    id: Optional[int] = None  # Add id field
-    item_name: str = Field(max_length=200)  # Changed from 'title'
+    id: Optional[int] = None
+    title: str = Field(max_length=200)  
     image: Optional[str] = None
     price: PositiveFloat
     description: Optional[str] = None
@@ -57,7 +57,7 @@ class OrderItemRead(BaseModel):
 class OrderItemPatch(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: Optional[int] = None
-    item_name: Optional[str] = None  # Changed from 'title'
+    title: Optional[str] = None  # Back to 'title'
     image: Optional[str] = None
     price: Optional[float] = None
     description: Optional[str] = None
