@@ -19,7 +19,7 @@ class OrderDB(Base):
     __tablename__ = "orders"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    user_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False)  # Foreign key to login service
     total_amount: Mapped[float] = mapped_column(Float, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     
@@ -30,7 +30,7 @@ class OrderItemDB(Base):
     
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     order_id: Mapped[int] = mapped_column(ForeignKey("orders.id"), nullable=False)
-    title: Mapped[str] = mapped_column(String(100), nullable=False)
+    item_name: Mapped[str] = mapped_column(String(100), nullable=False)  # Changed from 'title'
     image: Mapped[str] = mapped_column(String(255), nullable=True)
     price: Mapped[float] = mapped_column(Float, nullable=False)
     description: Mapped[str] = mapped_column(String(500), nullable=True)

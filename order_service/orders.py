@@ -92,7 +92,7 @@ def get_all_orders(db: Session = Depends(get_db)):
     orders = db.execute(select(OrderDB).order_by(OrderDB.id)).scalars().all()
     return orders
 
-@app.get("/api/orders/items", response_model=list[OrderItemRead])
+@app.get("/api/orders/items", response_model=list[ItemRead])
 def get_all_orders_front(db: Session = Depends(get_db)):
     """Get the items in the db for display on the frontpage"""
     orders = db.execute(select(ItemDB).order_by(ItemDB.id)).scalars().all()
@@ -117,7 +117,7 @@ async def create_order_receipt(payload: OrderRead, db: Session = Depends(get_db)
     """Post the receipt for an order"""
     items = [
     OrderItemDB(
-        title=item.title,
+        item_name=item.item_name,  # Changed from 'title'
         price=item.price,
         image=item.image,
         description=item.description,
