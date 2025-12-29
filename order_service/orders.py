@@ -117,7 +117,7 @@ async def create_order_receipt(payload: OrderRead, db: Session = Depends(get_db)
     """Post the receipt for an order"""
     items = [
     OrderItemDB(
-        title=item.title,  # Back to 'title'
+        title=item.title,
         price=item.price,
         image=item.image,
         description=item.description,

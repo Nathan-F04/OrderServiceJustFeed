@@ -57,7 +57,7 @@ class OrderItemRead(BaseModel):
 class OrderItemPatch(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: Optional[int] = None
-    title: Optional[str] = None  # Back to 'title'
+    title: Optional[str] = None
     image: Optional[str] = None
     price: Optional[float] = None
     description: Optional[str] = None
