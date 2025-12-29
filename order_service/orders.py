@@ -11,6 +11,36 @@ from .models import Base, ItemDB, OrderDB, OrderItemDB
 from .schemas import (ItemCreate, ItemRead, OrderRead, OrderReturn, OrderItemRead, OrderItemPatch)
 import json
 import os
+import time
+import logging
+
+# Simple Circuit Breaker
+class CircuitBreaker:
+    def __init__(self, failure_threshold=3, timeout=30):
+        self.failure_threshold = failure_threshold
+        self.timeout = timeout
+        self.failure_count = 0
+        self.last_failure_time = None
+        self.state = "CLOSED"  # CLOSED, OPEN, HALF_OPEN
+    
+    async def call(self, func, *args, **kwargs):
+        if self.state == "OPEN":
+            if time.time() - self.last_failure_time > self.timeout:
+                self.state = "HALF_OPEN"
+            else:
+                raise Exception("Circuit breaker is OPEN")
+        
+        try:
+            result = await func(*args, **kwargs)
+            self.failure_count = 0
+            self.state = "CLOSED"
+            return result
+        except Exception as e:
+            self.failure_count += 1
+            self.last_failure_time = time.time()
+            if self.failure_count >= self.failure_threshold:
+                self.state = "OPEN"
+            raise e
 
 app = FastAPI()
 Base.metadata.create_all(bind=engine)
@@ -18,6 +48,10 @@ Base.metadata.create_all(bind=engine)
 #Rabbit MQ
 EXCHANGE_NAME = "just_feed_exchange"
 RABBIT_URL = os.getenv("RABBIT_URL")
+
+# Circuit breaker for RabbitMQ
+rabbitmq_breaker = CircuitBreaker(failure_threshold=3, timeout=30)
+logger = logging.getLogger(__name__)
 
 origins = [
     "http://localhost:3000",
@@ -36,10 +70,13 @@ async def get_exchange():
     Open a connection, create a channel and declare a topic exchange.
     Returns (connection, channel, exchange).
     """
-    conn = await aio_pika.connect_robust(RABBIT_URL)
-    ch = await conn.channel()
-    ex = await ch.declare_exchange(EXCHANGE_NAME, aio_pika.ExchangeType.TOPIC)
-    return conn, ch, ex
+    async def _connect():
+        conn = await aio_pika.connect_robust(RABBIT_URL)
+        ch = await conn.channel()
+        ex = await ch.declare_exchange(EXCHANGE_NAME, aio_pika.ExchangeType.TOPIC)
+        return conn, ch, ex
+    
+    return await rabbitmq_breaker.call(_connect)
 
 def get_db():
     """get_db"""
@@ -78,7 +115,6 @@ def create_order(payload: ItemCreate, db: Session = Depends(get_db)):
 @app.post("/api/orderReceipt", response_model=OrderReturn, status_code=status.HTTP_201_CREATED)
 async def create_order_receipt(payload: OrderRead, db: Session = Depends(get_db)):
     """Post the receipt for an order"""
-    conn, ch, ex = await get_exchange()
     items = [
     OrderItemDB(
         title=item.title,
@@ -103,14 +139,18 @@ async def create_order_receipt(payload: OrderRead, db: Session = Depends(get_db)
         db.refresh(receipt)
     except IntegrityError:
         db.rollback()
-        msg = aio_pika.Message(body=json.dumps("Order couldn't be placed successfully").encode())
-        await ex.publish(msg, routing_key="order.success")
-        await conn.close()
         raise HTTPException(status_code=409, detail="Order failed")
 
-    msg = aio_pika.Message(body=json.dumps("Order placed successfully").encode())
-    await ex.publish(msg, routing_key="order.success")
-    await conn.close()
+    # Try to send notification with circuit breaker
+    try:
+        conn, ch, ex = await get_exchange()
+        msg = aio_pika.Message(body=json.dumps("Order placed successfully").encode())
+        await ex.publish(msg, routing_key="order.success")
+        await conn.close()
+    except Exception as e:
+        logger.warning(f"Notification failed: {e}")
+        # Order still succeeds even if notification fails
+    
     return receipt
 
 @app.patch("/api/orders/items/{order_id}", response_model=OrderItemPatch)
@@ -131,6 +171,15 @@ def patch_user(order_id: int, payload: OrderItemPatch, db: Session = Depends(get
     except IntegrityError:
         db.rollback()
     return order
+
+@app.get("/health")
+def health_check():
+    """Health check with circuit breaker status"""
+    return {
+        "status": "healthy",
+        "rabbitmq_circuit": rabbitmq_breaker.state,
+        "failures": rabbitmq_breaker.failure_count
+    }
 
 ## Needs to be implemented on the front end
 @app.delete("/api/orders/{item_id}", status_code=204)
