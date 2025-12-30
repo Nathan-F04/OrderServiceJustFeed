@@ -156,7 +156,7 @@ async def create_order_receipt(payload: OrderRead, db: Session = Depends(get_db)
 @app.patch("/api/orders/items/{order_id}", response_model=OrderItemPatch)
 def patch_user(order_id: int, payload: OrderItemPatch, db: Session = Depends(get_db)):
     """Patch to update the quantity"""
-    order = db.get(OrderItemDB, order_id)
+    order = db.get(ItemDB, order_id)  # Change from OrderItemDB to ItemDB
     if not order:
         raise HTTPException(status_code=404, detail="Order Item not found")
 
@@ -171,6 +171,7 @@ def patch_user(order_id: int, payload: OrderItemPatch, db: Session = Depends(get
     except IntegrityError:
         db.rollback()
     return order
+
 
 @app.get("/health")
 def health_check():
