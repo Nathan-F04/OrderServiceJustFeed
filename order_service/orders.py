@@ -86,16 +86,16 @@ def get_db():
     finally:
         db.close()
 
-@app.get("/api/orders", response_model=list[OrderRead])
-def get_all_orders(db: Session = Depends(get_db)):
-    """Get the order reciept"""
-    orders = db.execute(select(OrderDB).order_by(OrderDB.id)).scalars().all()
-    return orders
-
-@app.get("/api/orders/items", response_model=list[OrderItemRead])
+@app.get("/api/orders/items", response_model=list[ItemRead])
 def get_all_orders_front(db: Session = Depends(get_db)):
     """Get the items in the db for display on the frontpage"""
     orders = db.execute(select(ItemDB).order_by(ItemDB.id)).scalars().all()
+    return orders
+
+@app.get("/api/orders/{user_id}", response_model=list[OrderRead])
+def get_all_orders(user_id: int, db: Session = Depends(get_db)):
+    """Get the order reciept"""
+    orders = db.execute(select(OrderDB).where(OrderDB.user_id == user_id)).scalars().all()
     return orders
 
 ## Admin endpoint current only accessable using swagger
