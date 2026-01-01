@@ -49,16 +49,15 @@ def test_create_receipt_ok(mock_rabbitmq, client):
     """Tests post method for creating an order receipt"""
 
     result = client.post("/api/orderReceipt", json=receipt_payload())
-    print(result.json())
     assert result.status_code == 201
 
     mock_rabbitmq.assert_called()
 
-def test_get_all_orders_ok(mock_rabbitmq, client):
+def test_get_receipt(mock_rabbitmq, client):
     """Tests get method for retrieving order receipt"""
 
     client.post("/api/orderReceipt", json=receipt_payload())
-    result = client.get("/api/orders")
+    result = client.get("/api/orders/1")
     assert result.status_code == 200
     data = result.json()
     assert len(data) >= 1
