@@ -7,7 +7,7 @@ class Base(DeclarativeBase):
 
 class ItemDB(Base):
     __tablename__ = "cart_items"
-    
+
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     title: Mapped[str] = mapped_column(String(100), nullable=False)
     image: Mapped[str] = mapped_column(String(255), nullable=True)
